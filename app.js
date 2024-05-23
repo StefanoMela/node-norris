@@ -16,22 +16,40 @@ const writeJSONData = (fileName, newData) => {
     fs.writeFileSync(filePath, stringToWrite);
 }
 
-const server = http.createServer((req, res) => {
-    const jokes = readJSONData('norrisDB');
-    if (req.url === '/favicon.ico') {
-        res.writeHead(404);
-        res.end();
-        return;
-    }
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+const getJoke = (jokes, callback) => {
     fetch('https://api.chucknorris.io/jokes/random')
         .then(response => response.json())
-        .then(data => {
-            if(!jokes.includes(data.value)){
-                writeJSONData('norrisDB', [...jokes, data.value])
+        .then(({ value }) => {
+            if (!jokes.includes(value)) {
+                writeJSONData('norrisDB', [...jokes, value])
+                callback(value);
+            } else {
+                getJoke(jokes, callback)
             }
         })
-        res.end()
+}
+
+const server = http.createServer((req, res) => {
+    const jokes = readJSONData('norrisDB');
+    switch (req.url) {
+        case '/favicon.ico':
+            res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+            res.end();
+            break;
+        case '/lista':
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            let fileHtml = '<ul>';
+            jokes.forEach(joke => fileHtml += `<li>${joke}</li>`)
+            fileHtml += '</ul>';
+            res.end(fileHtml);
+            break;
+        case '/':
+            getJoke(jokes, (joke) => {
+                res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+                res.end(joke)
+            });
+            break;
+    }
 });
 
 server.listen(port, host, () => {
